@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PSNA Attendance System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-4">SHOWNYOUR FACE FOR SCANNING - <span class="text-blue-700">BOT-LAB</span></h1>
+    
+    <div class="mb-6 p-4 border border-blue-300 rounded bg-white">
+      <p class="text-xl">Name: <span id="currentName" class="font-semibold text-red-500">waiting...</span></p>
+    </div>
+
+    <!-- Camera Interface for Attendance Marking -->
+    <div class="mb-6 p-6 border border-green-300 rounded bg-white shadow-lg">
+      <h2 class="text-xl font-semibold mb-4 text-green-700">📹 Camera Attendance Scanner</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Camera Preview -->
+        <div class="space-y-4">
+          <div class="relative">
+            <video id="cameraPreview" class="w-full h-64 bg-gray-200 rounded-lg border-2 border-green-400" autoplay muted></video>
+            <div id="cameraStatus" class="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-xs rounded">Camera Off</div>
+          </div>
+          
+          <div class="flex space-x-3">
+            <button id="startCamera" onclick="startCamera()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+              🚀 Start Camera
+            </button>
+            <button id="stopCamera" onclick="stopCamera()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 hidden">
+              ⏹️ Stop Camera
+            </button>
+          </div>
+        </div>
+
+        <!-- Attendance Marking -->
+        <div class="space-y-4">
+          <div class="bg-blue-50 p-4 rounded-lg">
+            <h3 class="font-semibold text-blue-800 mb-2">Mark Attendance</h3>
+            <div class="space-y-3">
+              <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium">Student ID:</label>
+                <input type="number" id="attendanceStudentId" class="border rounded px-3 py-2 w-24" placeholder="ID" min="1" onchange="lookupStudent()">
+              </div>
+              
+              <!-- Student Info Display -->
+              <div id="studentInfo" class="hidden bg-white p-3 rounded border">
+                <div class="text-sm">
+                  <div class="font-semibold text-gray-800" id="studentNameDisplay">-</div>
+                  <div class="text-gray-600" id="studentDeptDisplay">-</div>
+                  <div class="text-gray-600" id="studentBatchDisplay">-</div>
+                </div>
+              </div>
+              
+              <button onclick="markAttendance()" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                ✅ Mark Attendance
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-yellow-50 p-4 rounded-lg">
+            <h3 class="font-semibold text-yellow-800 mb-2">Quick Stats</h3>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span class="text-gray-600">Today's Attendance:</span>
+                <div class="font-bold text-green-600" id="todayAttendance">-</div>
+              </div>
+              <div>
+                <span class="text-gray-600">Last Marked:</span>
+                <div class="font-bold text-blue-600" id="lastMarked">-</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="attendanceMessage" class="hidden p-3 rounded text-center font-medium"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="mb-6">
+      <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8">
+          <button onclick="showTab('attendance')" class="tab-button py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600" id="tab-attendance">
+            Attendance Records
+          </button>
+          <button onclick="showTab('reports')" class="tab-button py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" id="tab-reports">
+            Reports & Analytics
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Attendance Tab -->
+    <div id="attendance-tab" class="tab-content">
+      <table class="min-w-full bg-white border border-gray-300">
+        <thead class="bg-blue-400 text-white">
+          <tr>
+            <th class="py-2 px-4 border">ID</th>
+            <th class="py-2 px-4 border">Name</th>
+            <th class="py-2 px-4 border">Department</th>
+            <th class="py-2 px-4 border">Section</th>
+            <th class="py-2 px-4 border">Batch</th>
+            <th class="py-2 px-4 border">In Time</th>
+            <th class="py-2 px-4 border">In Date</th>
+            <th class="py-2 px-4 border">Out Time</th>
+            <th class="py-2 px-4 border">Out Date</th>
+          </tr>
+        </thead>
+        <tbody id="attendanceBody" class="text-center"></tbody>
+      </table>
+    </div>
+
+    <!-- Reports Tab -->
+    <div id="reports-tab" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- Daily Report Card -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h3 class="text-lg font-semibold mb-4 text-blue-600">Daily Report</h3>
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span>Date:</span>
+              <input type="date" id="dailyDate" class="border rounded px-2 py-1" onchange="loadDailyReport()">
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-center">
+              <div class="bg-green-100 p-3 rounded">
+                <div class="text-2xl font-bold text-green-600" id="presentCount">-</div>
+                <div class="text-sm text-green-700">Present</div>
+              </div>
+              <div class="bg-red-100 p-3 rounded">
+                <div class="text-2xl font-bold text-red-600" id="absentCount">-</div>
+                <div class="text-sm text-red-700">Absent</div>
+              </div>
+            </div>
+            <div class="text-center">
+              <div class="text-3xl font-bold text-blue-600" id="attendancePercentage">-</div>
+              <div class="text-sm text-gray-600">Attendance %</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Student Report Card -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h3 class="text-lg font-semibold mb-4 text-green-600">Student Report</h3>
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span>Student ID:</span>
+              <input type="number" id="studentId" class="border rounded px-2 py-1 w-20" placeholder="ID">
+            </div>
+            <button onclick="loadStudentReport()" class="w-full bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600">
+              Get Report
+            </button>
+            <div id="studentStats" class="hidden">
+              <div class="text-center">
+                <div class="text-2xl font-bold text-green-600" id="studentName">-</div>
+                <div class="text-sm text-gray-600" id="studentDept">-</div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 mt-3 text-center">
+                <div class="bg-blue-100 p-2 rounded">
+                  <div class="font-bold text-blue-600" id="totalDays">-</div>
+                  <div class="text-xs text-blue-700">Days</div>
+                </div>
+                <div class="bg-purple-100 p-2 rounded">
+                  <div class="font-bold text-purple-600" id="totalHours">-</div>
+                  <div class="text-xs text-purple-700">Hours</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Date Range Report Card -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h3 class="text-lg font-semibold mb-4 text-purple-600">Date Range Report</h3>
+          <div class="space-y-3">
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <span>From:</span>
+                <input type="date" id="startDate" class="border rounded px-2 py-1">
+              </div>
+              <div class="flex justify-between">
+                <span>To:</span>
+                <input type="date" id="endDate" class="border rounded px-2 py-1">
+              </div>
+            </div>
+            <button onclick="loadDateRangeReport()" class="w-full bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
+              Generate Report
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report Results -->
+      <div id="reportResults" class="hidden">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h3 class="text-lg font-semibold mb-4 text-gray-700">Report Results</h3>
+          <div id="reportContent"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 'attendance';
+    let cameraStream = null;
+
+    // Camera Functions
+    async function startCamera() {
+        try {
+            const video = document.getElementById('cameraPreview');
+            const status = document.getElementById('cameraStatus');
+            const startBtn = document.getElementById('startCamera');
+            const stopBtn = document.getElementById('stopCamera');
+
+            // Request camera access
+            cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user'
+                } 
+            });
+
+            // Display camera feed
+            video.srcObject = cameraStream;
+            video.play();
+
+            // Update UI
+            status.textContent = 'Camera On';
+            status.className = 'absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded';
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+
+            // Update current name display
+            document.getElementById('currentName').textContent = 'Camera Active - Ready for Scanning';
+            document.getElementById('currentName').className = 'font-semibold text-green-500';
+
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            alert('Could not access camera. Please check permissions and try again.');
+        }
+    }
+
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+
+        const video = document.getElementById('cameraPreview');
+        const status = document.getElementById('cameraStatus');
+        const startBtn = document.getElementById('startCamera');
+        const stopBtn = document.getElementById('stopCamera');
+
+        // Clear video
+        video.srcObject = null;
+
+        // Update UI
+        status.textContent = 'Camera Off';
+        status.className = 'absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-xs rounded';
+        startBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
+
+        // Reset name display
+        document.getElementById('currentName').textContent = 'waiting...';
+        document.getElementById('currentName').className = 'font-semibold text-red-500';
+    }
+
+    async function markAttendance() {
+        const studentId = document.getElementById('attendanceStudentId').value;
+        const messageDiv = document.getElementById('attendanceMessage');
+
+        if (!studentId) {
+            showMessage('Please enter a student ID', 'error');
+            return;
+        }
+
+        try {
+            const now = new Date().toISOString();
+            const response = await fetch('http://localhost:5000/api/attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    student_id: parseInt(studentId),
+                    in_time: now
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showMessage(`✅ Attendance marked successfully for Student ${studentId}!`, 'success');
+                document.getElementById('attendanceStudentId').value = '';
+                
+                // Update quick stats
+                updateQuickStats();
+                
+                // Refresh attendance data
+                fetchAttendance();
+            } else {
+                showMessage(`❌ Error: ${data.error}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('Error marking attendance:', error);
+            showMessage('❌ Network error. Please try again.', 'error');
+        }
+    }
+
+    function showMessage(message, type) {
+        const messageDiv = document.getElementById('attendanceMessage');
+        messageDiv.textContent = message;
+        messageDiv.className = `p-3 rounded text-center font-medium ${
+            type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`;
+        messageDiv.classList.remove('hidden');
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            messageDiv.classList.add('hidden');
+        }, 5000);
+    }
+
+    async function updateQuickStats() {
+        try {
+            // Get today's attendance count
+            const today = new Date().toISOString().split('T')[0];
+            const response = await fetch(`http://localhost:5000/api/reports/daily?date=${today}`);
+            const data = await response.json();
+
+            if (!data.error) {
+                document.getElementById('todayAttendance').textContent = `${data.summary.present_students}/${data.summary.total_students}`;
+            }
+
+            // Update last marked time
+            const now = new Date();
+            document.getElementById('lastMarked').textContent = now.toLocaleTimeString();
+
+        } catch (error) {
+            console.error('Error updating stats:', error);
+        }
+    }
+
+    // Initialize quick stats
+    updateQuickStats();
+
+    async function lookupStudent() {
+        const studentId = document.getElementById('attendanceStudentId').value;
+        const studentInfo = document.getElementById('studentInfo');
+        
+        if (!studentId) {
+            studentInfo.classList.add('hidden');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:5000/api/reports/student/${studentId}`);
+            const data = await response.json();
+
+            if (!data.error) {
+                // Display student info
+                document.getElementById('studentNameDisplay').textContent = data.student.name;
+                document.getElementById('studentDeptDisplay').textContent = `${data.student.department} - ${data.student.section}`;
+                document.getElementById('studentBatchDisplay').textContent = `Batch: ${data.student.batch}`;
+                
+                studentInfo.classList.remove('hidden');
+            } else {
+                studentInfo.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Error looking up student:', error);
+            studentInfo.classList.add('hidden');
+        }
+    }
+
+    function showTab(tabName) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+      
+      // Remove active state from all tab buttons
+      document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('border-blue-500', 'text-blue-600');
+        button.classList.add('border-transparent', 'text-gray-500');
+      });
+      
+      // Show selected tab content
+      document.getElementById(tabName + '-tab').classList.remove('hidden');
+      
+      // Activate selected tab button
+      document.getElementById('tab-' + tabName).classList.remove('border-transparent', 'text-gray-500');
+      document.getElementById('tab-' + tabName).classList.add('border-blue-500', 'text-blue-600');
+      
+      currentTab = tabName;
+      
+      // Load data for the selected tab
+      if (tabName === 'reports') {
+        loadDailyReport();
+        setDefaultDates();
+      }
+    }
+
+    function setDefaultDates() {
+      const today = new Date().toISOString().split('T')[0];
+      const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      document.getElementById('dailyDate').value = today;
+      document.getElementById('startDate').value = lastWeek;
+      document.getElementById('endDate').value = today;
+    }
+
+    async function loadDailyReport() {
+      try {
+        const date = document.getElementById('dailyDate').value;
+        const response = await fetch(`http://localhost:5000/api/reports/daily?date=${date}`);
+        const data = await response.json();
+
+        if (data.error) {
+          console.error('Error:', data.error);
+          return;
+        }
+
+        // Update summary cards
+        document.getElementById('presentCount').textContent = data.summary.present_students;
+        document.getElementById('absentCount').textContent = data.summary.absent_students;
+        document.getElementById('attendancePercentage').textContent = data.summary.attendance_percentage + '%';
+
+        // Show detailed results
+        showReportResults('Daily Report', data);
+      } catch (err) {
+        console.error('Error loading daily report:', err);
+      }
+    }
+
+    async function loadStudentReport() {
+      try {
+        const studentId = document.getElementById('studentId').value;
+        if (!studentId) {
+          alert('Please enter a student ID');
+          return;
+        }
+
+        const response = await fetch(`http://localhost:5000/api/reports/student/${studentId}`);
+        const data = await response.json();
+
+        if (data.error) {
+          alert('Student not found');
+          return;
+        }
+
+        // Update student stats
+        document.getElementById('studentName').textContent = data.student.name;
+        document.getElementById('studentDept').textContent = data.student.department;
+        document.getElementById('totalDays').textContent = data.statistics.total_days;
+        document.getElementById('totalHours').textContent = data.statistics.total_hours;
+        
+        document.getElementById('studentStats').classList.remove('hidden');
+
+        // Show detailed results
+        showReportResults('Student Report', data);
+      } catch (err) {
+        console.error('Error loading student report:', err);
+      }
+    }
+
+    async function loadDateRangeReport() {
+      try {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        
+        if (!startDate || !endDate) {
+          alert('Please select both start and end dates');
+          return;
+        }
+
+        const response = await fetch(`http://localhost:5000/api/reports/range?start_date=${startDate}&end_date=${endDate}`);
+        const data = await response.json();
+
+        if (data.error) {
+          console.error('Error:', data.error);
+          return;
+        }
+
+        // Show detailed results
+        showReportResults('Date Range Report', data);
+      } catch (err) {
+        console.error('Error loading date range report:', err);
+      }
+    }
+
+    function showReportResults(title, data) {
+      document.getElementById('reportResults').classList.remove('hidden');
+      let content = `<h4 class="text-lg font-semibold mb-3">${title}</h4>`;
+
+      if (title === 'Daily Report') {
+        content += `
+          <div class="overflow-x-auto">
+            <table class="min-w-full border border-gray-300">
+              <thead class="bg-gray-100">
+                <tr>
+                  <th class="border p-2">ID</th>
+                  <th class="border p-2">Name</th>
+                  <th class="border p-2">Department</th>
+                  <th class="border p-2">Section</th>
+                  <th class="border p-2">Status</th>
+                  <th class="border p-2">In Time</th>
+                  <th class="border p-2">Out Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.details.map(record => `
+                  <tr class="hover:bg-gray-50">
+                    <td class="border p-2">${record.id}</td>
+                    <td class="border p-2">${record.name}</td>
+                    <td class="border p-2">${record.department}</td>
+                    <td class="border p-2">${record.section}</td>
+                    <td class="border p-2">
+                      <span class="px-2 py-1 rounded text-xs ${record.status === 'Present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                        ${record.status}
+                      </span>
+                    </td>
+                    <td class="border p-2">${record.in_time ? new Date(record.in_time).toLocaleTimeString() : '-'}</td>
+                    <td class="border p-2">${record.out_time ? new Date(record.out_time).toLocaleTimeString() : '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } else if (title === 'Student Report') {
+        content += `
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-blue-50 p-4 rounded">
+                <h5 class="font-semibold text-blue-800">Total Days</h5>
+                <p class="text-2xl font-bold text-blue-600">${data.statistics.total_days}</p>
+              </div>
+              <div class="bg-green-50 p-4 rounded">
+                <h5 class="font-semibold text-green-800">Total Hours</h5>
+                <p class="text-2xl font-bold text-green-600">${data.statistics.total_hours}</p>
+              </div>
+              <div class="bg-purple-50 p-4 rounded">
+                <h5 class="font-semibold text-purple-800">Avg Hours/Day</h5>
+                <p class="text-2xl font-bold text-purple-600">${data.statistics.average_hours_per_day}</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full border border-gray-300">
+                <thead class="bg-gray-100">
+                  <tr>
+                    <th class="border p-2">Date</th>
+                    <th class="border p-2">In Time</th>
+                    <th class="border p-2">Out Time</th>
+                    <th class="border p-2">Duration (min)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.attendance_records.map(record => `
+                    <tr class="hover:bg-gray-50">
+                      <td class="border p-2">${record.date}</td>
+                      <td class="border p-2">${record.in_time ? new Date(record.in_time).toLocaleTimeString() : '-'}</td>
+                      <td class="border p-2">${record.out_time ? new Date(record.out_time).toLocaleTimeString() : '-'}</td>
+                      <td class="border p-2">${record.duration_minutes}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      } else if (title === 'Date Range Report') {
+        content += `
+          <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h5 class="font-semibold mb-3">Daily Summary</h5>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full border border-gray-300">
+                    <thead class="bg-gray-100">
+                      <tr>
+                        <th class="border p-2">Date</th>
+                        <th class="border p-2">Present Students</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${data.daily_summary.map(day => `
+                        <tr class="hover:bg-gray-50">
+                          <td class="border p-2">${day.date}</td>
+                          <td class="border p-2">${day.present_count}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <h5 class="font-semibold mb-3">Department Summary</h5>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full border border-gray-300">
+                    <thead class="bg-gray-100">
+                      <tr>
+                        <th class="border p-2">Department</th>
+                        <th class="border p-2">Total</th>
+                        <th class="border p-2">Present</th>
+                        <th class="border p-2">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${data.department_summary.map(dept => `
+                        <tr class="hover:bg-gray-50">
+                          <td class="border p-2">${dept.department}</td>
+                          <td class="border p-2">${dept.total_students}</td>
+                          <td class="border p-2">${dept.present_students}</td>
+                          <td class="border p-2">${dept.attendance_percentage}%</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      document.getElementById('reportContent').innerHTML = content;
+    }
+
+    async function fetchAttendance() {
+        try {
+            const response = await fetch('http://localhost:5000/api/attendance');
+            const data = await response.json();
+
+            const tbody = document.getElementById('attendanceBody');
+            tbody.innerHTML = '';
+
+            data.forEach(record => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hover:bg-gray-100');
+
+                tr.innerHTML = `
+                    <td class="border py-2 px-4">${record.id}</td>
+                    <td class="border py-2 px-4">${record.name}</td>
+                    <td class="border py-2 px-4">${record.department}</td>
+                    <td class="border py-2 px-4">${record.section}</td>
+                    <td class="border py-2 px-4">${record.batch}</td>
+                    <td class="border py-2 px-4">${record.in_time ? new Date(record.in_time).toLocaleTimeString() : ''}</td>
+                    <td class="border py-2 px-4">${record.in_date || ''}</td>
+                    <td class="border py-2 px-4">${record.out_time ? new Date(record.out_time).toLocaleTimeString() : ''}</td>
+                    <td class="border py-2 px-4">${record.out_date || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error('Error fetching attendance:', err);
+        }
+    }
+
+    // Initialize
+    fetchAttendance();
+    setInterval(fetchAttendance, 60000);  // Refresh every 60 seconds
+  </script> 
+</body>
+</html>
