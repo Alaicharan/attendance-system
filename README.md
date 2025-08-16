@@ -1,6 +1,6 @@
 # 🎯 Attendance System
 
-A comprehensive, real-time attendance management system with camera integration, built using modern web technologies and AI capabilities.
+A comprehensive, real-time attendance management system with camera integration, built using modern web technologies.
 
 ## ✨ Features
 
